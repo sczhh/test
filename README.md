@@ -1,3 +1,80 @@
+public static X509Certificate GenCert(CertInfo info)
+        {
+            RsaKeyPairGenerator _rsa = new RsaKeyPairGenerator();
+            SecureRandom _random = new SecureRandom();
+
+            _rsa.Init(new KeyGenerationParameters(_random, info.rsa_strength));
+            AsymmetricCipherKeyPair _pair = _rsa.GenerateKeyPair();
+
+            X509Name _cert_name = new X509Name("CN=" + info.name);
+            BigInteger _serialnumber = BigInteger.ProbablePrime(120, new Random());
+
+            X509V3CertificateGenerator _cert = new X509V3CertificateGenerator();
+            _cert.SetSerialNumber(_serialnumber);
+            _cert.SetSubjectDN(_cert_name);
+            _cert.SetIssuerDN(_cert_name);
+            _cert.SetNotBefore(info.begin_date);
+            _cert.SetNotAfter(info.expire_date);
+            _cert.SetSignatureAlgorithm("SHA1withRSA");
+            _cert.SetPublicKey(_pair.Public);
+
+            _cert.AddExtension(X509Extensions.ExtendedKeyUsage.Id, false,
+                new AuthorityKeyIdentifier(
+                    SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(_pair.Public),
+                    new GeneralNames(new GeneralName(_cert_name)), _serialnumber));
+            _cert.AddExtension(X509Extensions.ExtendedKeyUsage.Id, false,
+                new ExtendedKeyUsage(new[] { KeyPurposeID.IdKPServerAuth }));
+
+            return _cert.Generate(_pair.Private);
+        }
+
+
+
+/// <summary>
+        /// Generate a cert/key pair
+        /// </summary>
+        private void GenerateCertKeyPair()
+        {
+            // Generate RSA key pair
+            RsaKeyPairGenerator r = new RsaKeyPairGenerator();
+            r.Init(new KeyGenerationParameters(new SecureRandom(), 2048));
+            keyPair = r.GenerateKeyPair();
+
+            // Generate the X509 certificate
+            X509V3CertificateGenerator certGen = new X509V3CertificateGenerator();
+            X509Name dnName = new X509Name("CN=NVIDIA GameStream Client");
+
+            certGen.SetSerialNumber(BigInteger.ValueOf(DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond));
+            certGen.SetSubjectDN(dnName);
+            certGen.SetIssuerDN(dnName); // use the same
+            // Expires in 20 years
+            certGen.SetNotBefore(DateTime.Now);
+            certGen.SetNotAfter(DateTime.Now.AddYears(20));
+            certGen.SetPublicKey(keyPair.Public);
+            certGen.SetSignatureAlgorithm("SHA1withRSA");
+
+            try
+            {
+                cert = certGen.Generate(keyPair.Private);
+
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.StackTrace);
+            }
+
+            Task.Run(async () => await SaveCertKeyPair()).Wait(); 
+        }
+
+
+
+
+
+
+
+
+
+
 public static X509Certificate2 GenerateCertificate(X509Certificate2 caCert, string certSubjectName)
 {
     // Generate Certificate
