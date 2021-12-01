@@ -34,6 +34,48 @@ public static X509Certificate2 GenerateCertificate(X509Certificate2 caCert, stri
 
 }
 
+private static X509Certificate2 ConvertToWindows(Org.BouncyCastle.X509.X509Certificate newCert, AsymmetricCipherKeyPair kp)
+{
+    string tempStorePwd = "abcd1234";
+    var tempStoreFile = new FileInfo(Path.GetTempFileName());
+
+    try
+    {
+        // store key 
+        {
+            var newStore = new Pkcs12Store();
+
+            var certEntry = new X509CertificateEntry(newCert);
+
+            newStore.SetCertificateEntry(
+                newCert.SubjectDN.ToString(),
+                certEntry
+                );
+
+            newStore.SetKeyEntry(
+                newCert.SubjectDN.ToString(),
+                new AsymmetricKeyEntry(kp.Private),
+                new[] { certEntry }
+                );
+            using (var s = tempStoreFile.Create())
+            {
+                newStore.Save(
+                    s,
+                    tempStorePwd.ToCharArray(),
+                    new SecureRandom(new CryptoApiRandomGenerator())
+                    );
+            }
+        }
+
+        // reload key 
+        return new X509Certificate2(tempStoreFile.FullName, tempStorePwd);
+    }
+    finally
+    {
+        tempStoreFile.Delete();
+    }
+}
+
 域名：^(?=^.{3,255}$)[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+$
 ip4: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$
 # test
